@@ -1,0 +1,70 @@
+From 93c770c4d5d10d98d3b1411ed5b2ec10433d41ba Mon Sep 17 00:00:00 2001
+From: Mediagg <build@mediagg.invalid>
+Date: Fri, 9 Oct 2026 08:20:52 +0100
+Subject: [PATCH 9002/9002] deinterlace: compile out the GPL Yadif algorithm
+
+Mediagg build. yadif.h and yadif_template.h come from FFmpeg under the
+GPL; the rest of the deinterlace module is LGPL. The yadif and yadif2x
+mode names stay valid and map to the X and Linear algorithms.
+---
+ modules/video_filter/deinterlace/algo_yadif.c  |  5 +++++
+ modules/video_filter/deinterlace/deinterlace.c | 10 ++++++----
+ modules/video_filter/deinterlace/deinterlace.h |  1 -
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/modules/video_filter/deinterlace/algo_yadif.c b/modules/video_filter/deinterlace/algo_yadif.c
+index a89d240b83..59b0c63261 100644
+--- a/modules/video_filter/deinterlace/algo_yadif.c
++++ b/modules/video_filter/deinterlace/algo_yadif.c
+@@ -22,6 +22,10 @@
+  * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
+  *****************************************************************************/
+ 
++/* Mediagg build: compiled out. yadif.h and yadif_template.h are GPL-2+ code
++ * from FFmpeg, and this build of libVLC must not contain GPL code. The "yadif"
++ * and "yadif2x" modes are served by "x" and "linear" in deinterlace.c. */
++#if 0
+ #ifdef HAVE_CONFIG_H
+ #   include "config.h"
+ #endif
+@@ -200,3 +204,4 @@ int RenderYadif( filter_t *p_filter, picture_t *p_dst, picture_t *p_src,
+         return VLC_EGENERIC;
+     }
+ }
++#endif /* Mediagg */
+diff --git a/modules/video_filter/deinterlace/deinterlace.c b/modules/video_filter/deinterlace/deinterlace.c
+index 9f9d5291ff..512202debb 100644
+--- a/modules/video_filter/deinterlace/deinterlace.c
++++ b/modules/video_filter/deinterlace/deinterlace.c
+@@ -362,10 +362,12 @@ static struct filter_mode_t filter_mode [] = {
+                  { false, false, false, true }, true, true },
+     { "blend", .pf_render_single_pic = RenderBlend,
+                  { false, false, false, false }, true, true },
+-    { "yadif", .pf_render_single_pic = RenderYadifSingle,
+-                 { false, true, false, false }, false, true },
+-    { "yadif2x", .pf_render_ordered = RenderYadif,
+-                 { true, true, false, false }, false, true },
++    /* Mediagg build: Yadif is GPL and compiled out (see algo_yadif.c);
++     * its two modes are kept as names and served by X and Linear. */
++    { "yadif", .pf_render_single_pic = RenderX,
++                 { false, false, false, false }, false, false },
++    { "yadif2x", .pf_render_ordered = RenderLinear,
++                 { true, false, false, false }, true, true },
+     { "x", .pf_render_single_pic = RenderX,
+                  { false, false, false, false }, false, false },
+     { "phosphor", .pf_render_ordered = RenderPhosphor,
+diff --git a/modules/video_filter/deinterlace/deinterlace.h b/modules/video_filter/deinterlace/deinterlace.h
+index 355f2f4882..18981b27aa 100644
+--- a/modules/video_filter/deinterlace/deinterlace.h
++++ b/modules/video_filter/deinterlace/deinterlace.h
+@@ -39,7 +39,6 @@ struct vlc_object_t;
+ /* Local algorithm headers */
+ #include "algo_basic.h"
+ #include "algo_x.h"
+-#include "algo_yadif.h"
+ #include "algo_phosphor.h"
+ #include "algo_ivtc.h"
+ #include "common.h"
+-- 
+2.51.0
+

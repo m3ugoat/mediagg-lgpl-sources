@@ -1,0 +1,93 @@
+diff --git a/buildMobileVLCKit.sh b/buildMobileVLCKit.sh
+index 3e274a0..9473412 100755
+--- a/buildMobileVLCKit.sh
++++ b/buildMobileVLCKit.sh
+@@ -9,7 +9,7 @@ BUILD_SIMULATOR=yes
+ BUILD_DYNAMIC_FRAMEWORK=no
+ BUILD_ARCH=`uname -m | cut -d. -f1`
+ SDK_VERSION=`xcrun --sdk iphoneos --show-sdk-version`
+-SDK_MIN=9.0
++SDK_MIN=${VLCKIT_IOS_MIN:-9.0}
+ VERBOSE=no
+ DEBUG=no
+ CONFIGURATION="Release"
+@@ -102,7 +102,7 @@ do
+              TVOS=yes
+              IOS=no
+              SDK_VERSION=`xcrun --sdk appletvos --show-sdk-version`
+-             SDK_MIN=10.2
++             SDK_MIN=${VLCKIT_TVOS_MIN:-10.2}
+              OSVERSIONMINCFLAG=mtvos
+              OSVERSIONMINLDFLAG=tvos
+              ;;
+@@ -281,6 +281,7 @@ buildxcodeproj()
+                -archivePath build/"$target"-$PLATFORM$SDK.xcarchive \
+                ARCHS="${architectures}" \
+                IPHONEOS_DEPLOYMENT_TARGET=${SDK_MIN} \
++               TVOS_DEPLOYMENT_TARGET=${SDK_MIN} \
+                ${bitcodeflag} \
+                SKIP_INSTALL=no \
+                > ${out}
+@@ -349,6 +350,18 @@ if [ "$SKIPLIBVLCCOMPILATION" != "yes" ]; then
+     ./bootstrap
+     make
+     make .buildgas
++    # ninja 1.13 (Kitware jobserver build) joins make's jobserver. Apple's make 3.81 offers
++    # a pipe jobserver whose fds it closes for non-recursive recipes, so ninja aborts with
++    # "Could not initialize jobserver", or it makes the shared pipe non-blocking and make
++    # dies with "read jobs pipe: Resource temporarily unavailable". Hide the jobserver.
++    if [ ! -e build/bin/ninja.real ]; then
++        mv build/bin/ninja build/bin/ninja.real
++    fi
++    printf '%s\n' '#!/bin/sh' \
++        'unset MAKEFLAGS MFLAGS' \
++        'case " $* " in *" -j"*) ;; *) set -- -j "${NINJA_JOBS:-4}" "$@" ;; esac' \
++        'exec "$(dirname "$0")/ninja.real" "$@"' > build/bin/ninja
++    chmod +x build/bin/ninja
+     spopd #libvlc/vlc/extras/tools
+ fi
+ 
+@@ -554,7 +567,7 @@ buildLibVLC() {
+         --disable-sdl \
+         --disable-SDL_image \
+         --disable-iconv \
+-        --enable-zvbi \
++        --disable-zvbi \
+         --disable-kate \
+         --disable-caca \
+         --disable-gettext \
+@@ -713,6 +726,7 @@ buildLibVLC() {
+         --disable-mmx \
+         --disable-sparkle \
+         --disable-addonmanagermodules \
++        ${VLCKIT_EXTRA_CONFIGURE} \
+         --disable-mad > ${out}
+     fi
+ 
+@@ -818,6 +832,8 @@ buildLibVLC() {
+     mpegaudio"
+     fi
+ 
++    blacklist="${blacklist} ${VLCKIT_EXTRA_BLACKLIST}"
++
+     echo ${blacklist}
+ 
+     for i in ${blacklist}
+@@ -1187,7 +1203,7 @@ if [ "$TVOS" = "yes" ]; then
+             spopd
+         fi
+     fi
+-    if [ "$FARCH" = "all" ] || (is_simulator_arch $arch);then
++    if [ "$FARCH" = "all" ] || [ "$FARCH" = "aarch64" ] || (is_simulator_arch $FARCH);then
+         platform="appletvsimulator"
+         buildxcodeproj MobileVLCKit "TVVLCKit" ${platform}
+         dsymfolder=$PROJECT_DIR/build/TVVLCKit-${platform}.xcarchive/dSYMs/TVVLCKit.framework.dSYM
+@@ -1223,7 +1239,7 @@ if [ "$IOS" = "yes" ]; then
+             spopd
+         fi
+     fi
+-    if [ "$FARCH" = "all" ] || (is_simulator_arch $arch);then
++    if [ "$FARCH" = "all" ] || [ "$FARCH" = "aarch64" ] || (is_simulator_arch $FARCH);then
+         platform="iphonesimulator"
+         buildxcodeproj MobileVLCKit "MobileVLCKit" ${platform}
+         dsymfolder=$PROJECT_DIR/build/MobileVLCKit-${platform}.xcarchive/dSYMs/MobileVLCKit.framework.dSYM

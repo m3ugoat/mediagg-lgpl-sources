@@ -1,0 +1,80 @@
+From bf4dc51e06617006311c8ea486de05f4ad45639e Mon Sep 17 00:00:00 2001
+From: Mediagg <build@mediagg.invalid>
+Date: Fri, 9 Oct 2026 08:03:24 +0100
+Subject: [PATCH 9001/9002] contrib: ffmpeg: drop patent-live decoders, DTS
+ core only
+
+Mediagg build. Disables the software H.264, HEVC, VVC, TrueHD and MLP
+decoders (and AC-4 when FFmpeg grows one), and forces the dca decoder to
+decode the DTS core only, never the DTS-HD extensions. E-AC-3 stays: its
+last US patent expired on 2026-01-30.
+---
+ .../src/ffmpeg/mediagg-dca-core-only.patch    | 23 +++++++++++++++++++
+ contrib/src/ffmpeg/rules.mak                  | 14 +++++++++++
+ 2 files changed, 37 insertions(+)
+ create mode 100644 contrib/src/ffmpeg/mediagg-dca-core-only.patch
+
+diff --git a/contrib/src/ffmpeg/mediagg-dca-core-only.patch b/contrib/src/ffmpeg/mediagg-dca-core-only.patch
+new file mode 100644
+index 0000000000..66b0be36ec
+--- /dev/null
++++ b/contrib/src/ffmpeg/mediagg-dca-core-only.patch
+@@ -0,0 +1,23 @@
++--- a/libavcodec/dcadec.c
+++++ b/libavcodec/dcadec.c
++@@ -340,6 +340,11 @@
++     s->xll.avctx = avctx;
++     s->lbr.avctx = avctx;
++ 
+++    /* Mediagg build: decode the DTS core only, whatever the caller asked.
+++     * The DTS-HD extensions (EXSS: XLL, XBR, X96, LBR; core XCH/XXCH/X96)
+++     * are never parsed. */
+++    s->core_only = 1;
+++
++     if (ff_dca_core_init(&s->core) < 0)
++         return AVERROR(ENOMEM);
++ 
++@@ -381,7 +386,7 @@
++ #define PARAM AV_OPT_FLAG_AUDIO_PARAM | AV_OPT_FLAG_DECODING_PARAM
++ 
++ static const AVOption dcadec_options[] = {
++-    { "core_only", "Decode core only without extensions", OFFSET(core_only), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, PARAM },
+++    { "core_only", "Decode core only without extensions", OFFSET(core_only), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, PARAM },
++ 
++     { "channel_order", "Order in which the channels are to be exported",
++         OFFSET(output_channel_order), AV_OPT_TYPE_INT,
+diff --git a/contrib/src/ffmpeg/rules.mak b/contrib/src/ffmpeg/rules.mak
+index 6e4d66daa3..d2aef036f7 100644
+--- a/contrib/src/ffmpeg/rules.mak
++++ b/contrib/src/ffmpeg/rules.mak
+@@ -60,6 +60,18 @@ FFMPEGCONF += \
+ endif
+ endif
+ 
++# Mediagg: no software decoders for formats whose patents are still live.
++# H.264 and HEVC are decoded in hardware by VLC's videotoolbox module.
++# The globs also catch the hardware wrappers (h264_qsv, hevc_cuvid, ...),
++# none of which can be built for Apple targets anyway. ac4* matches nothing
++# in FFmpeg 8.1 and is there for when it lands. FFmpeg only warns when a
++# pattern matches nothing. E-AC-3 is kept: its last US patent (US7516064)
++# expired on 2026-01-30.
++FFMPEGCONF += \
++	--disable-decoder='h264*,hevc*,vvc*,ac4*,libopenh264' \
++	--disable-decoder=truehd \
++	--disable-decoder=mlp
++
+ ifdef ENABLE_PDB
+ FFMPEGCONF += --ln_s=false
+ endif
+@@ -266,6 +278,8 @@ ifdef USE_FFMPEG
+ 	$(APPLY) $(SRC)/ffmpeg/0001-bring-back-XP-support.patch
+ 	$(APPLY) $(SRC)/ffmpeg/0011-avcodec-videotoolboxenc-disable-calls-on-unsupported.patch
+ 	$(APPLY) $(SRC)/ffmpeg/avcodec-fix-compilation-visionos.patch
++	# Mediagg: DTS core only (the DTS-HD extensions are patent-live)
++	$(APPLY) $(SRC)/ffmpeg/mediagg-dca-core-only.patch
+ endif
+ ifdef USE_LIBAV
+ 	$(APPLY) $(SRC)/ffmpeg/libav_gsm.patch
+-- 
+2.51.0
+
