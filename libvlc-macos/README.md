@@ -1,7 +1,7 @@
 # libVLC for macOS, for Mediagg
 
-`build.sh` builds libVLC 3.0 for macOS for Mediagg for desktop, the Tauri app in
-mediagg-kmp-desktop. The app loads libVLC at runtime with `libloading`
+`build.sh` builds libVLC 3.0 for macOS for Mediagg for Mac, Mediagg's
+Tauri desktop app. The app loads libVLC at runtime with `libloading`
 (`desktopApp/src-tauri/src/vlc.rs`) and uses only libVLC's public C API. The output follows
 the same rules as [`../vlckit`](../vlckit): the patent-live software decoders are removed,
 there is no GPL code, and everything is linked **dynamically**.
